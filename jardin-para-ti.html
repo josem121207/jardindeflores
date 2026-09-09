@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Un jardín para ti</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B8%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ===========================================================
+     TOKENS
+     =========================================================== */
+  :root{
+    --sky-top:#150c2c;
+    --sky-mid:#4b3163;
+    --sky-glow:#ad6c8f;
+    --sky-horizon:#ee9c78;
+    --sky-horizon-light:#ffd9a3;
+
+    --hill-back-1:#2a4a35;
+    --hill-back-2:#152a1c;
+    --hill-front-1:#356b42;
+    --hill-front-2:#132417;
+
+    --grass-base:#2f5d3a;
+    --grass-tip:#75b378;
+
+    --moon-color:#fff2d8;
+
+    --text-cream:#fdf3e8;
+    --text-soft:rgba(253,243,232,0.72);
+    --text-faint:rgba(255,255,255,0.55);
+
+    --paper-cream:#fdf6e6;
+    --paper-edge:#c9a15c;
+    --ink:#4a3521;
+    --ink-soft:#7a4a2c;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+    overscroll-behavior:none;
+    -webkit-user-select:none;
+    user-select:none;
+    background:var(--sky-top);
+  }
+
+  body{
+    font-family:'Inter',-apple-system,sans-serif;
+  }
+
+  #scene{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    height:100dvh;
+    overflow:hidden;
+    background:
+      radial-gradient(60% 45% at 78% 18%, var(--sky-glow) 0%, transparent 60%),
+      linear-gradient(180deg,
+        var(--sky-top) 0%,
+        var(--sky-mid) 42%,
+        var(--sky-horizon) 74%,
+        var(--sky-horizon-light) 92%
+      );
+  }
+
+  /* ===========================================================
+     MOON
+     =========================================================== */
+  .moon{
+    position:absolute;
+    top:9%;
+    right:13%;
+    width:clamp(48px,8vw,84px);
+    aspect-ratio:1/1;
+    border-radius:50%;
+    background:radial-gradient(circle at 38% 34%, #fffaf0 0%, var(--moon-color) 55%, #f6dfb0 100%);
+    box-shadow:
+      0 0 40px 6px rgba(255,230,180,0.45),
+      0 0 90px 30px rgba(255,205,170,0.22),
+      0 0 160px 70px rgba(210,150,190,0.12);
+    z-index:1;
+  }
+
+  /* ===========================================================
+     FIREFLIES
+     =========================================================== */
+  .fireflies-layer{
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:5;
+  }
+  .firefly{
+    position:absolute;
+    width:5px; height:5px;
+    border-radius:50%;
+    background:radial-gradient(circle, #fff6d9 0%, #ffdf8f 45%, rgba(255,223,143,0) 75%);
+    box-shadow:0 0 8px 2px rgba(255,223,143,0.75);
+    opacity:0;
+    animation:fireflyFloat var(--dur,7s) ease-in-out infinite;
+  }
+  @keyframes fireflyFloat{
+    0%{ transform:translate(0,0); opacity:0; }
+    12%{ opacity:0.9; }
+    50%{ transform:translate(var(--dx,20px),var(--dy,-20px)); opacity:0.45; }
+    88%{ opacity:0.9; }
+    100%{ transform:translate(0,0); opacity:0; }
+  }
+
+  /* ===========================================================
+     AMBIENT FALLING PETALS
+     =========================================================== */
+  .petal-fall-layer{ position:absolute; inset:0; pointer-events:none; z-index:5; overflow:hidden; }
+  .petal-fall{
+    position:absolute;
+    top:-4%;
+    width:9px; height:9px;
+    border-radius:60% 40% 60% 40%;
+    opacity:0.85;
+    animation:petalFall var(--fall-dur,9s) linear forwards;
+  }
+  @keyframes petalFall{
+    to{ transform:translate(var(--drift,0px),118vh) rotate(var(--spin,90deg)); opacity:0; }
+  }
+
+  /* ===========================================================
+     Mensaje
+     =========================================================== */
+  .message-wrap{
+    position:absolute;
+    top:11%;
+    left:50%;
+    width:min(600px,86vw);
+    transform:translate(-50%,10px);
+    text-align:center;
+    opacity:0;
+    pointer-events:none;
+    z-index:7;
+    transition:opacity 1.3s cubic-bezier(.22,1,.36,1), transform 1.3s cubic-bezier(.22,1,.36,1);
+  }
+  .message-wrap.show{ opacity:1; transform:translate(-50%,0); }
+  .message-small{
+    margin:0 0 .35em;
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-style:italic;
+    font-weight:400;
+    font-size:clamp(.95rem,2vw,1.15rem);
+    color:var(--text-soft);
+    letter-spacing:.02em;
+  }
+  .message-main{
+    margin:0;
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-style:italic;
+    font-weight:500;
+    font-size:clamp(1.55rem,4.4vw,2.65rem);
+    line-height:1.28;
+    color:var(--text-cream);
+    text-shadow:0 2px 24px rgba(0,0,0,0.28);
+  }
+
+  /* ===========================================================
+     HINT
+     =========================================================== */
+  .hint{
+    position:absolute;
+    bottom:3.2%;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:.76rem;
+    letter-spacing:.03em;
+    color:var(--text-faint);
+    opacity:0;
+    z-index:7;
+    pointer-events:none;
+    transition:opacity .9s ease;
+  }
+  .hint.show{ opacity:1; }
+  .hint span{ display:inline-block; animation:hintPulse 2.8s ease-in-out infinite; }
+  @keyframes hintPulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+
+  /* ===========================================================
+     GROUND
+     =========================================================== */
+  #ground{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:min(60vh,620px);
+  }
+  .hill{ position:absolute; inset:0; }
+  .hill-back{
+    background:linear-gradient(180deg,var(--hill-back-1),var(--hill-back-2));
+    clip-path:polygon(0% 42%, 14% 30%, 27% 46%, 44% 24%, 61% 40%, 79% 20%, 93% 36%, 100% 27%, 100% 100%, 0% 100%);
+    z-index:1;
+  }
+  .hill-front{
+    top:12%;
+    background:linear-gradient(180deg,var(--hill-front-1),var(--hill-front-2));
+    clip-path:polygon(0% 58%, 16% 42%, 31% 60%, 49% 36%, 67% 55%, 84% 32%, 100% 50%, 100% 100%, 0% 100%);
+    z-index:2;
+  }
+
+  .flowers-layer{
+    position:absolute; left:0; right:0; bottom:0; top:0;
+    z-index:3;
+    cursor:pointer;
+  }
+  .flower{
+    position:absolute;
+    bottom:0;
+    left:0;
+    pointer-events:none;
+  }
+  .flower-svg{ display:block; overflow:visible; }
+
+  .stem{
+    fill:none;
+    stroke-width:3;
+    stroke-linecap:round;
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+    animation:stemDraw .9s ease-out forwards;
+  }
+  @keyframes stemDraw{ to{ stroke-dashoffset:0; } }
+
+  .leaf{ opacity:0; transform-origin:0px 0px; animation:leafPop .55s cubic-bezier(.34,1.56,.64,1) forwards; }
+  @keyframes leafPop{
+    0%{ transform:scale(0); opacity:0; }
+    60%{ opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .leaf-vein{ fill:none; stroke:rgba(255,255,255,.3); stroke-width:.55; stroke-linecap:round; opacity:0; animation:veinFade .45s ease-out forwards; }
+
+  .petal{
+    opacity:0;
+    transform-origin:0px 0px;
+    stroke:rgba(35,18,10,.16);
+    stroke-width:.5;
+    animation:petalPop .55s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes petalPop{
+    0%{ transform:scale(.12); opacity:0; }
+    55%{ opacity:1; }
+    72%{ transform:scale(1.08); }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .petal-vein{ fill:none; stroke:rgba(255,255,255,.4); stroke-width:.55; stroke-linecap:round; opacity:0; animation:veinFade .45s ease-out forwards; }
+  @keyframes veinFade{ to{ opacity:1; } }
+
+  .stamens{ transform-origin:0px 0px; opacity:0; animation:centerPop .4s cubic-bezier(.34,1.56,.64,1) forwards; }
+  .stamens line{ stroke:#c97a35; stroke-width:.7; stroke-linecap:round; }
+  .pollen-dot{ fill:#8a4a1d; opacity:0; transform-origin:center; animation:centerPop .35s ease-out forwards; }
+  .flower-shadow{ opacity:.9; }
+
+  .flower-center{ opacity:0; animation:centerPop .4s cubic-bezier(.34,1.56,.64,1) forwards; }
+  @keyframes centerPop{
+    0%{ transform:scale(0); opacity:0; }
+    70%{ transform:scale(1.2); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+
+  .grass-layer{ position:absolute; left:0; right:0; bottom:0; height:64px; z-index:4; }
+  .grass-blade{
+    position:absolute;
+    bottom:0;
+    width:5px;
+    border-radius:3px 3px 0 0;
+    background:linear-gradient(180deg,var(--grass-tip),var(--grass-base));
+    transform-origin:bottom center;
+    animation:grassSway var(--sway-dur,3.2s) ease-in-out infinite;
+  }
+  @keyframes grassSway{ 0%,100%{ transform:rotate(-3deg); } 50%{ transform:rotate(3deg); } }
+
+  .ground-shadow{
+    position:absolute; left:0; right:0; bottom:0; height:34px;
+    background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.32));
+    pointer-events:none;
+    z-index:6;
+  }
+
+  .click-burst{
+    position:absolute;
+    width:14px; height:14px;
+    margin:-7px 0 0 -7px;
+    border-radius:50%;
+    border:2px solid rgba(255,242,222,0.85);
+    pointer-events:none;
+    z-index:8;
+    animation:clickPop .6s ease-out forwards;
+  }
+  @keyframes clickPop{
+    from{ transform:scale(.3); opacity:.9; }
+    to{ transform:scale(2.3); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .firefly, .grass-blade{ animation:none !important; opacity:.6; }
+    .stem, .leaf, .petal, .flower-center, .stamens, .pollen-dot, .petal-vein, .leaf-vein{ animation-duration:.35s !important; }
+    .grain-overlay{ animation:none !important; }
+    .letter-trigger{ animation:none !important; }
+    .letter-paper{ transition-duration:.25s !important; }
+  }
+
+  /* ===========================================================
+     FILM GRAIN (sutil, cubre toda la escena)
+     =========================================================== */
+  .grain-overlay{
+    position:absolute; inset:0;
+    z-index:9;
+    pointer-events:none;
+    opacity:.05;
+    mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size:140px 140px;
+    animation:grainShift 1s steps(6) infinite;
+  }
+  @keyframes grainShift{
+    0%{ background-position:0 0; }
+    16%{ background-position:-20px 10px; }
+    33%{ background-position:15px -15px; }
+    50%{ background-position:-10px -20px; }
+    66%{ background-position:20px 15px; }
+    83%{ background-position:-15px 5px; }
+    100%{ background-position:0 0; }
+  }
+
+  /* ===========================================================
+     CARTA — botón sobre
+     =========================================================== */
+  .letter-trigger{
+    position:absolute;
+    left:6%;
+    bottom:6.5%;
+    z-index:9;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:.45em;
+    background:none;
+    border:none;
+    padding:.4em;
+    margin:0;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    opacity:0;
+    transition:opacity 1s ease;
+    animation:letterFloat 4.5s ease-in-out infinite;
+  }
+  .letter-trigger.show{ opacity:1; }
+  .envelope-icon{
+    filter:drop-shadow(0 4px 14px rgba(0,0,0,0.35));
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .letter-trigger:hover .envelope-icon,
+  .letter-trigger:focus-visible .envelope-icon{ transform:translateY(-3px) scale(1.06); }
+  .letter-trigger-label{
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-style:italic;
+    font-size:.78rem;
+    color:var(--text-faint);
+    letter-spacing:.02em;
+  }
+  @keyframes letterFloat{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
+
+  /* ===========================================================
+     CARTA — overlay y papel
+     =========================================================== */
+  .letter-overlay{
+    position:fixed; inset:0;
+    z-index:40;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:6vh 5vw;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .5s ease;
+  }
+  .letter-overlay.open{ opacity:1; pointer-events:auto; }
+  .letter-backdrop{
+    position:absolute; inset:0;
+    background:rgba(10,6,20,0.55);
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+  }
+  .letter-paper{
+    position:relative;
+    width:min(560px,100%);
+    max-height:82vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    background:
+      repeating-linear-gradient(180deg, rgba(120,90,40,.05) 0px, rgba(120,90,40,.05) 1px, transparent 1px, transparent 34px),
+      radial-gradient(120% 90% at 15% 0%, #fffaf0 0%, var(--paper-cream) 55%, #efdcb3 100%);
+    border-radius:6px;
+    box-shadow:0 30px 70px rgba(0,0,0,.5), 0 0 0 1px rgba(120,90,40,.15) inset;
+    padding:clamp(1.8rem,4vw,3rem) clamp(1.6rem,4.5vw,3.2rem);
+    transform:translateY(24px) scale(.94);
+    opacity:0;
+    transition:transform .55s cubic-bezier(.22,1,.36,1), opacity .5s ease;
+  }
+  .letter-overlay.open .letter-paper{ transform:translateY(0) scale(1); opacity:1; }
+  .letter-paper::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    border-radius:inherit;
+    pointer-events:none;
+    mix-blend-mode:multiply;
+  }
+  .letter-close{
+    position:absolute; top:.7rem; right:.8rem;
+    width:2rem; height:2rem;
+    border:none; border-radius:50%;
+    background:rgba(120,90,40,.12);
+    color:var(--ink-soft);
+    font-size:1rem;
+    line-height:1;
+    cursor:pointer;
+    transition:background .25s ease;
+  }
+  .letter-close:hover{ background:rgba(120,90,40,.22); }
+  .letter-content{ position:relative; }
+  .letter-greeting{
+    margin:0 0 1em;
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-style:italic;
+    font-weight:600;
+    font-size:clamp(1.3rem,3vw,1.7rem);
+    color:var(--ink-soft);
+  }
+  .letter-body{
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-size:clamp(1.05rem,2.4vw,1.28rem);
+    line-height:1.75;
+    color:var(--ink);
+  }
+  .letter-body p{ margin:0 0 1.1em; }
+  .letter-body p:last-child{ margin-bottom:0; }
+  .letter-signoff{
+    margin:1.6em 0 0;
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-style:italic;
+    font-weight:500;
+    font-size:clamp(1.1rem,2.6vw,1.35rem);
+    color:var(--ink-soft);
+    text-align:right;
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="petalGrad-rosa" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#d9557b"/>
+      <stop offset="55%" stop-color="#ff9fb8"/>
+      <stop offset="100%" stop-color="#fff2f2"/>
+    </linearGradient>
+    <linearGradient id="petalGrad-crema" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#e08a4f"/>
+      <stop offset="55%" stop-color="#f7c48a"/>
+      <stop offset="100%" stop-color="#fff8ea"/>
+    </linearGradient>
+    <linearGradient id="petalGrad-lila" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#8a5aa8"/>
+      <stop offset="55%" stop-color="#c9a3dd"/>
+      <stop offset="100%" stop-color="#f5ecfa"/>
+    </linearGradient>
+    <linearGradient id="petalGrad-coral" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#df6a4f"/>
+      <stop offset="55%" stop-color="#ff9d7a"/>
+      <stop offset="100%" stop-color="#ffe7d6"/>
+    </linearGradient>
+    <linearGradient id="petalGrad-marfil" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#d9a24f"/>
+      <stop offset="55%" stop-color="#f0d9a0"/>
+      <stop offset="100%" stop-color="#fffdf5"/>
+    </linearGradient>
+    <radialGradient id="centerGrad-gold" cx="38%" cy="32%" r="70%">
+      <stop offset="0%" stop-color="#fff2cf"/>
+      <stop offset="45%" stop-color="#f4b860"/>
+      <stop offset="100%" stop-color="#b5672c"/>
+    </radialGradient>
+    <linearGradient id="leafGrad" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#254a30"/>
+      <stop offset="100%" stop-color="#7bbf7e"/>
+    </linearGradient>
+    <radialGradient id="shadowGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.38)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<div id="scene">
+  <div class="moon"></div>
+  <div class="fireflies-layer"></div>
+  <div class="petal-fall-layer"></div>
+
+  <div class="message-wrap">
+    <p class="message-small" id="msgSmall">para ti</p>
+    <p class="message-main" id="msgMain">Cada flor de este jardín floreció pensando en ti.</p>
+  </div>
+
+  <div id="ground">
+    <div class="hill hill-back"></div>
+    <div class="hill hill-front"></div>
+    <div class="flowers-layer"></div>
+    <div class="grass-layer"></div>
+    <div class="ground-shadow"></div>
+  </div>
+
+  <p class="hint"><span>toca el campo para sembrar una flor</span></p>
+
+  <div class="grain-overlay"></div>
+
+  <button class="letter-trigger" id="letterTrigger" type="button" aria-haspopup="dialog" aria-controls="letterOverlay">
+    <svg class="envelope-icon" viewBox="0 0 68 50" width="46" height="34" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="envelopeBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fff6e4"/>
+          <stop offset="100%" stop-color="#f0dcb0"/>
+        </linearGradient>
+      </defs>
+      <rect x="1.5" y="1.5" width="65" height="47" rx="4" fill="url(#envelopeBody)" stroke="#c9a15c" stroke-width="1.4"/>
+      <path d="M3,4 L34,29 L65,4" fill="none" stroke="#c9a15c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <g transform="translate(34,27)">
+        <circle r="7.2" fill="#a8395a"/>
+        <circle cx="0" cy="-4.6" r="3.2" fill="#d9557b"/>
+        <circle cx="4.4" cy="-1.4" r="3.2" fill="#d9557b"/>
+        <circle cx="2.7" cy="3.7" r="3.2" fill="#d9557b"/>
+        <circle cx="-2.7" cy="3.7" r="3.2" fill="#d9557b"/>
+        <circle cx="-4.4" cy="-1.4" r="3.2" fill="#d9557b"/>
+        <circle r="2.2" fill="#f4b860"/>
+      </g>
+    </svg>
+    <span class="letter-trigger-label">una carta para ti</span>
+  </button>
+
+  <div class="letter-overlay" id="letterOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Carta">
+    <div class="letter-backdrop" id="letterBackdrop"></div>
+    <div class="letter-paper" id="letterPaper">
+      <button class="letter-close" id="letterClose" type="button" aria-label="Cerrar carta">✕</button>
+      <div class="letter-content">
+        <p class="letter-greeting" id="letterGreeting">Para ti,</p>
+        <div class="letter-body" id="letterBody"></div>
+        <p class="letter-signoff" id="letterSignoff">Con todo mi cariño.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     Contenido de carta y mensaje
+     ========================================================= */
+  const CONFIG = {
+    nombre:  "mi amor",
+    mensaje: "Cada flor de este jardín floreció pensando en ti.",
+    carta: [
+      "Elegí que esta carta viviera aquí, escondida detrás de un sobre pequeño, en medio de una noche que inventé solo para ti. Hay algo en la quietud de este cielo &mdash; la luna baja, las luciérnagas yendo y viniendo sin prisa &mdash; que se parece a lo que siento cuando pienso en ti: tranquilo, pero lleno de cosas.",
+      "Cada flor que ves ahí afuera nació de un motivo distinto. Una guarda una tarde cualquiera que se volvió inolvidable solo porque estabas en ella. Otra, una risa tuya que no logro sacarme de la cabeza por más que lo intento. Si sigues tocando el campo, van a seguir naciendo más &mdash; porque contigo, sencillamente, no se me acaban los motivos.",
+      "No necesito una razón enorme para escribirte esto. Me alcanza con que existas, con que hayas decidido quedarte cerca, con que una parte de tu tiempo &mdash; que es lo más valioso que tienes &mdash; la hayas compartido conmigo. Eso, para mí, ya es un jardín entero.",
+      "Así que quédate un rato. Siembra flores, mira a las luciérnagas, deja que la noche pase despacio. Y cuando quieras leer esto otra vez, esta carta va a seguir aquí, esperándote, como yo."
+    ],
+    cartaFirma: "Con todo mi cariño."
+  };
+  document.getElementById('msgSmall').textContent = "para " + CONFIG.nombre;
+  document.getElementById('msgMain').textContent  = CONFIG.mensaje;
+
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const PETAL_THEMES = ['rosa','crema','lila','coral','marfil'];
+  const PETAL_SHAPES = ['point','round','ruffled'];
+  const STEM_COLORS  = ['#3f7a52','#356b46'];
+  const PETAL_FALL_STYLES = [
+    'radial-gradient(circle at 32% 28%, #fff2f2, #d9557b)',
+    'radial-gradient(circle at 32% 28%, #fff8ea, #e08a4f)',
+    'radial-gradient(circle at 32% 28%, #f5ecfa, #8a5aa8)',
+    'radial-gradient(circle at 32% 28%, #ffe7d6, #df6a4f)',
+    'radial-gradient(circle at 32% 28%, #fffdf5, #d9a24f)'
+  ];
+
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+  function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  /* --- formas de pétalo: variedad de "especies" --- */
+  function petalPathPoint(s){
+    const len=(36*s).toFixed(1), mid=(28*s).toFixed(1), near=(13*s).toFixed(1);
+    const w1=(7*s).toFixed(1), w2=(5*s).toFixed(1);
+    return `M0,0 C-${w1},-${near} -${w2},-${mid} 0,-${len} C${w2},-${mid} ${w1},-${near} 0,0 Z`;
+  }
+  function petalPathRound(s){
+    const len=(32*s).toFixed(1), w=(11*s).toFixed(1);
+    const mid1=(len*0.28).toFixed(1), mid2=(len*0.85).toFixed(1);
+    return `M0,0 C-${w},-${mid1} -${(w*0.9).toFixed(1)},-${mid2} 0,-${len} C${(w*0.9).toFixed(1)},-${mid2} ${w},-${mid1} 0,0 Z`;
+  }
+  function petalPathRuffled(s){
+    const len=(34*s).toFixed(1), w=(8*s).toFixed(1);
+    const nl=(len*0.94).toFixed(1);
+    return `M0,0 C-${w},-${(len*0.3).toFixed(1)} -${(w*0.8).toFixed(1)},-${(len*0.7).toFixed(1)} -${(w*0.35).toFixed(1)},-${nl} `
+         + `C-${(w*0.15).toFixed(1)},-${len} ${(w*0.15).toFixed(1)},-${len} ${(w*0.35).toFixed(1)},-${nl} `
+         + `C${(w*0.8).toFixed(1)},-${(len*0.7).toFixed(1)} ${w},-${(len*0.3).toFixed(1)} 0,0 Z`;
+  }
+  function getPetalPath(shape,s){
+    if(shape==='round')   return petalPathRound(s);
+    if(shape==='ruffled') return petalPathRuffled(s);
+    return petalPathPoint(s);
+  }
+
+  function leafPath(s){
+    const len=(22*s).toFixed(1), w=(9*s).toFixed(1), half=(len*0.5).toFixed(1), wm=(w*0.55).toFixed(1);
+    return `M0,0 C-${w},-${half} -${wm},-${len} 0,-${len} C${wm},-${len} ${w},-${half} 0,0 Z`;
+  }
+
+  function buildFlowerSVG(o){
+    const tx = rand(-9,9), qx = tx*0.5 + rand(-7,7);
+    const ty = -100, qy = -54;
+    const petalFill = `url(#petalGrad-${o.theme})`;
+    let svg = `<svg viewBox="-42 -152 84 162" width="72" height="140" class="flower-svg">`;
+
+    svg += `<ellipse class="flower-shadow" cx="0" cy="2" rx="16" ry="4.2" fill="url(#shadowGrad)"/>`;
+    svg += `<path class="stem" pathLength="1" d="M0,0 Q${qx.toFixed(1)},${qy} ${tx.toFixed(1)},${ty}" style="stroke:${o.stemColor}; animation-delay:${o.delay}s"/>`;
+
+    [0.4, 0.68].forEach((t,i)=>{
+      const mt = 1-t;
+      const px = 2*mt*t*qx + t*t*tx;
+      const py = 2*mt*t*qy + t*t*ty;
+      const side = i===0 ? -1 : 1;
+      const leafDelay = (o.delay + 0.35 + i*0.15).toFixed(2);
+      svg += `<g transform="translate(${px.toFixed(1)},${py.toFixed(1)}) rotate(${side*58})">`
+           +   `<path class="leaf" d="${leafPath(0.85)}" fill="url(#leafGrad)" style="animation-delay:${leafDelay}s"/>`
+           +   `<path class="leaf-vein" d="M0,-1 L0,-16" style="animation-delay:${(o.delay+0.5+i*0.15).toFixed(2)}s"/>`
+           + `</g>`;
+    });
+
+    const headDelay = o.delay + 0.68;
+    svg += `<g transform="translate(${tx.toFixed(1)},${ty})">`;
+    for(let i=0;i<o.petalCount;i++){
+      const angle = i*(360/o.petalCount) + rand(-6,6);
+      const pDelay = (headDelay + i*0.06).toFixed(2);
+      const s = rand(0.85,1.12);
+      svg += `<g transform="rotate(${angle.toFixed(1)})">`
+           +   `<path class="petal" d="${getPetalPath(o.shape,s)}" fill="${petalFill}" style="animation-delay:${pDelay}s"/>`
+           +   `<path class="petal-vein" d="M0,-${(2*s).toFixed(1)} L0,-${(29*s).toFixed(1)}" style="animation-delay:${(headDelay+i*0.06+0.1).toFixed(2)}s"/>`
+           + `</g>`;
+    }
+    const stamenDelay = (headDelay + o.petalCount*0.06 + 0.02).toFixed(2);
+    svg += `<g class="stamens" style="animation-delay:${stamenDelay}s">`;
+    for(let i=0;i<7;i++){
+      const a = (i*(360/7)+rand(-8,8)).toFixed(1);
+      svg += `<line x1="0" y1="0" x2="0" y2="-4.6" transform="rotate(${a})"/>`;
+    }
+    svg += `</g>`;
+    const centerDelay = (headDelay + o.petalCount*0.06 + 0.08).toFixed(2);
+    svg += `<circle class="flower-center" r="5.5" fill="url(#centerGrad-gold)" style="animation-delay:${centerDelay}s"/>`;
+    for(let i=0;i<4;i++){
+      const dx=rand(-2.6,2.6).toFixed(1), dy=rand(-2.6,2.6).toFixed(1);
+      svg += `<circle class="pollen-dot" cx="${dx}" cy="${dy}" r="0.6" style="animation-delay:${centerDelay}s"/>`;
+    }
+    svg += `</g></svg>`;
+    return svg;
+  }
+
+  function plantFlower(container, xPercent, delay){
+    const scale = rand(0.6,1.3);
+    const bottom = Math.max(0,(1.3-scale)*34 + rand(-4,4));
+    const petalCount = choice([5,5,5,6,8]);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flower';
+    wrapper.style.left = xPercent + '%';
+    wrapper.style.bottom = bottom + 'px';
+    wrapper.style.zIndex = Math.round(scale*10);
+    wrapper.style.transform = `translateX(-50%) scale(${scale.toFixed(2)})`;
+    wrapper.innerHTML = buildFlowerSVG({
+      theme: choice(PETAL_THEMES),
+      shape: choice(PETAL_SHAPES),
+      stemColor: choice(STEM_COLORS),
+      petalCount,
+      delay
+    });
+    container.appendChild(wrapper);
+    return wrapper;
+  }
+
+  function spawnClickBurst(layer,x,y){
+    const b = document.createElement('div');
+    b.className = 'click-burst';
+    b.style.left = x+'px';
+    b.style.top = y+'px';
+    layer.appendChild(b);
+    b.addEventListener('animationend', ()=>b.remove());
+  }
+
+  function init(){
+    const flowersLayer = document.querySelector('.flowers-layer');
+    const grassLayer   = document.querySelector('.grass-layer');
+    const fliesLayer   = document.querySelector('.fireflies-layer');
+    const petalLayer   = document.querySelector('.petal-fall-layer');
+    const messageEl    = document.querySelector('.message-wrap');
+    const hintEl       = document.querySelector('.hint');
+
+    /* --- campo inicial de flores --- */
+    const count = window.innerWidth < 640 ? 14 : 22;
+    const xs = [];
+    for(let i=0;i<count;i++){ xs.push(rand(4,96)); }
+    xs.sort((a,b)=>a-b);
+    const spread = REDUCED ? 0.03 : 0.1;
+    const startBase = REDUCED ? 0 : 0.3;
+    xs.forEach((x,i)=>{
+      const delay = startBase + i*spread + rand(0, REDUCED?0.02:0.08);
+      plantFlower(flowersLayer, x, delay);
+    });
+
+    /* --- pasto --- */
+    const grassCount = window.innerWidth < 640 ? 34 : 54;
+    for(let i=0;i<grassCount;i++){
+      const blade = document.createElement('div');
+      blade.className = 'grass-blade';
+      blade.style.left = rand(0,100) + '%';
+      blade.style.height = rand(16,34) + 'px';
+      blade.style.setProperty('--sway-dur', rand(2.6,4.2)+'s');
+      blade.style.animationDelay = rand(0,3) + 's';
+      grassLayer.appendChild(blade);
+    }
+
+    /* --- luciérnagas --- */
+    if(!REDUCED){
+      const fCount = window.innerWidth < 640 ? 5 : 9;
+      for(let i=0;i<fCount;i++){
+        const fly = document.createElement('div');
+        fly.className = 'firefly';
+        fly.style.left = rand(6,94) + '%';
+        fly.style.top  = rand(16,60) + '%';
+        fly.style.setProperty('--dx', rand(-40,40)+'px');
+        fly.style.setProperty('--dy', rand(-30,30)+'px');
+        fly.style.setProperty('--dur', rand(5,9)+'s');
+        fly.style.animationDelay = rand(0,5) + 's';
+        fliesLayer.appendChild(fly);
+      }
+    }
+
+    /* --- pétalos cayendo --- */
+    if(!REDUCED){
+      setInterval(()=>{
+        if(document.hidden) return;
+        const p = document.createElement('div');
+        p.className = 'petal-fall';
+        p.style.left = rand(4,96) + '%';
+        p.style.setProperty('--drift', rand(-60,60)+'px');
+        p.style.setProperty('--spin', rand(-180,180)+'deg');
+        const dur = rand(7,11);
+        p.style.setProperty('--fall-dur', dur+'s');
+        p.style.background = choice(PETAL_FALL_STYLES);
+        petalLayer.appendChild(p);
+        setTimeout(()=>p.remove(), dur*1000+200);
+      }, 2600);
+    }
+
+    /* --- mensaje y pista --- */
+    const bloomTotal = REDUCED ? 0.6 : 3.4;
+    const letterTriggerEl = document.getElementById('letterTrigger');
+    setTimeout(()=> messageEl.classList.add('show'), bloomTotal*1000);
+    setTimeout(()=>{
+      hintEl.classList.add('show');
+      if(letterTriggerEl) letterTriggerEl.classList.add('show');
+    }, (bloomTotal+1.2)*1000);
+
+    /* --- sembrar al tocar --- */
+    let firstClick = true;
+    flowersLayer.addEventListener('click', (e)=>{
+      const rect = flowersLayer.getBoundingClientRect();
+      const xPercent = ((e.clientX-rect.left)/rect.width)*100;
+      plantFlower(flowersLayer, Math.min(97,Math.max(3,xPercent)), 0);
+      spawnClickBurst(flowersLayer, e.clientX-rect.left, e.clientY-rect.top);
+      if(firstClick){ firstClick = false; hintEl.classList.remove('show'); }
+      const all = flowersLayer.querySelectorAll('.flower');
+      if(all.length > 70){ all[0].remove(); }
+    });
+
+    initLetter();
+  }
+
+  /* --- modo "leer una carta" --- */
+  function initLetter(){
+    const trigger    = document.getElementById('letterTrigger');
+    const overlay    = document.getElementById('letterOverlay');
+    const backdrop   = document.getElementById('letterBackdrop');
+    const closeBtn   = document.getElementById('letterClose');
+    const greetingEl = document.getElementById('letterGreeting');
+    const bodyEl     = document.getElementById('letterBody');
+    const signoffEl  = document.getElementById('letterSignoff');
+    if(!trigger || !overlay) return;
+
+    greetingEl.textContent = `Para ${CONFIG.nombre},`;
+    bodyEl.innerHTML = CONFIG.carta.map(p=>`<p>${p}</p>`).join('');
+    signoffEl.textContent = CONFIG.cartaFirma;
+
+    function openLetter(){
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden','false');
+    }
+    function closeLetter(){
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden','true');
+      trigger.focus({preventScroll:true});
+    }
+    trigger.addEventListener('click', openLetter);
+    closeBtn.addEventListener('click', closeLetter);
+    backdrop.addEventListener('click', closeLetter);
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape' && overlay.classList.contains('open')) closeLetter();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
+/*josecito estuvo aqui*/
